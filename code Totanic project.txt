@@ -1,0 +1,194 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
+
+df_train=pd.read_csv('train.csv')   
+df_test=pd.read_csv('test.csv') 
+df3=pd.read_csv('gender_submission.csv')
+
+df_train.head(6)
+
+df_test = pd.concat([df_test,df3], axis=1)
+
+plt.figure(figsize=(8, 6))
+sns.countplot(x='SibSp', hue='Survived', data=df_train)
+plt.legend(title='Survived', labels=['No', 'Yes'])
+plt.show()
+
+plt.figure(figsize=(8, 6))
+sns.countplot(x='Parch', hue='Survived', data=df_train)
+plt.legend(title='Survived', labels=['No', 'Yes'])
+plt.show()
+
+df_test['Family']=df_test['SibSp']+df_test['Parch']
+df_train['Family']=df_train['SibSp']+df_train['Parch']
+
+plt.figure(figsize=(8, 6))
+sns.countplot(x='Family', hue='Survived', data=df_train, palette='Set1')
+plt.legend(title='Survived', labels=['No', 'Yes'])
+plt.show()
+
+label_encoder = LabelEncoder()
+df_train['Sex'] = label_encoder.fit_transform(df_train['Sex'])
+df_test['Sex'] = label_encoder.transform(df_test['Sex'])
+
+plt.figure(figsize=(8, 6))
+sns.countplot(x='Pclass', hue='Survived', data=df_train)
+plt.title('Survivability by class')
+plt.xlabel('class')
+plt.ylabel('Number of passengers')
+plt.legend(title='Survived', labels=['No', 'Yes'])
+plt.show()
+
+age_bins = [0, 10, 20, 30, 40, 50, 60, 70, 80]
+df_train['Age_Category'] = pd.cut(df_train['Age'], bins=age_bins, right=False)
+plt.figure(figsize=(12, 8))
+sns.countplot(x='Age_Category', hue='Survived', data=df_train, palette='Set1')
+plt.title('Survivability depenfing on the age')
+plt.xlabel('Age')
+plt.ylabel('Number of passengers')
+plt.legend(title='Survived', labels=['No', 'Yes'])
+plt.show()
+
+important_infos = ['Pclass', 'Sex', 'Age', 'Family']
+
+df_train_copie=df_train.copy()
+df_test_copie=df_test.copy()
+
+df_train_copie=df_train_copie.dropna(subset=important_infos)
+df_test_copie=df_test_copie.dropna(subset=important_infos)
+    
+
+df_train[important_infos].head(6)
+
+df_train_copie[important_infos].head(6)
+
+X_train = df_train_copie[important_infos]
+y_train = df_train_copie['Survived']
+
+X_test = df_test_copie[important_infos]
+y_test = df_test_copie['Survived']
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+C= [0.001, 0.01, 0.1, 1, 10, 100]
+accuracy_values=[]
+for c_value in C:
+    lr_classifier = LogisticRegression(C=c_value)
+    lr_classifier.fit(X_train, y_train)
+    lr_predictions = lr_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, lr_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(C,accuracy_values, marker='o', color='b')
+plt.xlabel('C values')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the C value used')
+plt.show()
+
+solver= ['liblinear', 'saga', 'lbfgs']
+accuracy_values=[]
+for solv in solver:
+    lr_classifier = LogisticRegression(solver=solv, max_iter=10000)
+    lr_classifier.fit(X_train, y_train)
+    lr_predictions = lr_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, lr_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(solver,accuracy_values, marker='o', color='b')
+plt.xlabel('C values')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the C value used')
+plt.show()
+
+penalty = ['none','l2']
+accuracy_values=[]
+for pen in penalty:
+    lr_classifier = LogisticRegression(penalty=pen)
+    lr_classifier.fit(X_train, y_train)
+    lr_predictions = lr_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, lr_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(penalty,accuracy_values, marker='o', color='b')
+plt.xlabel('C values')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the C value used')
+plt.show()
+
+penalty= ['l2']#l1, elasticnet and none
+C=[0.001, 0.01, 0.1, 1, 10, 100]
+solver= ['liblinear', 'saga', 'lbfgs']
+for pen in penalty:
+    for c_value in C:
+        for solv in solver:
+            lr_classifier = LogisticRegression(penalty=pen, C=c_value, solver=solv, max_iter=10000)
+            lr_classifier.fit(X_train, y_train)
+            lr_predictions = lr_classifier.predict(X_test)
+            accuracy = accuracy_score(y_test, lr_predictions)
+            print("With penalty = {}, solver = {} and C = {}, we have an accuracy of {}".format(pen,solv,c_value,accuracy))
+            
+param_grid_lr = {
+    'penalty': ['l2'],
+    'C': [0.001, 0.01, 0.1, 1, 10, 100],
+    'solver': ['liblinear', 'saga', 'lbfgs']
+}
+
+lr_classifier = LogisticRegression()
+grid_search_lr = GridSearchCV(lr_classifier, param_grid=param_grid_lr)
+grid_search_lr.fit(X_train_scaled, y_train)
+lr_classifier = grid_search_lr.best_estimator_
+print("Best Hyperparameters for this Logistic Regression:", grid_search_lr.best_params_)
+lr_predictions = lr_classifier.predict(X_test_scaled)
+lr_accuracy = accuracy_score(y_test, lr_predictions)
+print("Logistic Regression Accuracy:", lr_accuracy)
+
+handeling_missing_values=['mean','median','most_frequent']
+
+for i in range (len(handeling_missing_values)):
+    
+    df_train_copie2=df_train.copy()
+    df_test_copie2=df_test.copy()
+    imputer = SimpleImputer(strategy=handeling_missing_values[i])
+    df_train_copie2[important_infos] = pd.DataFrame(imputer.fit_transform(df_train_copie2[important_infos]),columns=important_infos)
+    df_test_copie2[important_infos] = pd.DataFrame(imputer.fit_transform(df_test_copie2[important_infos]),columns=important_infos)
+    
+    X_train = df_train_copie2[important_infos]
+    y_train = df_train_copie2['Survived']
+
+    X_test = df_test_copie2[important_infos]
+    y_test = df_test_copie2['Survived']
+
+
+    param_grid_lr = {
+        'penalty': ['l2'],
+        'C': [0.001, 0.01, 0.1, 1, 10, 100],
+        'solver': ['liblinear', 'saga', 'lbfgs']
+    }
+
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+
+    lr_classifier = LogisticRegression()
+    grid_search_lr = GridSearchCV(lr_classifier, param_grid=param_grid_lr, cv=5)
+    grid_search_lr.fit(X_train_scaled, y_train)
+    lr_classifier = grid_search_lr.best_estimator_
+    print("\nBest Hyperparameters for this Logistic Regression:", grid_search_lr.best_params_)
+    lr_predictions = lr_classifier.predict(X_test_scaled)
+    lr_accuracy = accuracy_score(y_test, lr_predictions)
+    print("Confusion Matrix when remplacing any missing information by the {} value of the column: ".format(handeling_missing_values[i]))
+    print(confusion_matrix(y_test,lr_predictions))
+    print("Accuracy when remplacing any missing information by the {} value of the column: {}".format(handeling_missing_values[i],lr_accuracy))
+    
+    

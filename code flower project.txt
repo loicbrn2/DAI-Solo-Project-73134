@@ -1,0 +1,119 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import randint
+
+iris_data = pd.read_csv('IRIS_ Flower_Dataset.csv')
+
+sns.pairplot(iris_data, hue='species')
+plt.show()
+
+X = iris_data.drop('species', axis=1)
+y = iris_data['species']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+
+c=[0.01,0.1,1,10,100]
+accuracy_values=[]
+for c_value in c:
+    svm_classifier = SVC(C=c_value)
+    svm_classifier.fit(X_train, y_train)
+    svm_predictions = svm_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, svm_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(c,accuracy_values, marker='o', color='b')
+plt.xlabel('C values')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the C value used')
+plt.show()
+
+kernels=['linear', 'rbf', 'poly']
+accuracy_values=[]
+for kern in kernels:
+    svm_classifier = SVC(kernel=kern)
+    svm_classifier.fit(X_train, y_train)
+    svm_predictions = svm_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, svm_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(kernels,accuracy_values, marker='o', color='b')
+plt.xlabel('Kernel')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the kernel used')
+plt.show()
+
+gamma= ['scale', 'auto']
+accuracy_values=[]
+for gam in gamma:
+    svm_classifier = SVC(gamma=gam)
+    svm_classifier.fit(X_train, y_train)
+    svm_predictions = svm_classifier.predict(X_test)
+    accuracy = accuracy_score(y_test, svm_predictions)
+    accuracy_values.append(accuracy)
+
+plt.plot(gamma,accuracy_values, marker='o', color='b')
+plt.xlabel('Gamma')
+plt.ylabel('Accuracy')
+plt.title('Accuracy depending on the gamma used')
+plt.show()
+
+gamma= ['scale', 'auto']
+c=[0.1,1,10,100]
+kernels=['linear', 'rbf', 'poly']
+for gam in gamma:
+    for c_value in c:
+        for ker in kernels:
+            svm_classifier = SVC(gamma=gam,kernel=ker,C=c_value)
+            svm_classifier.fit(X_train, y_train)
+            svm_predictions = svm_classifier.predict(X_test)
+            accuracy = accuracy_score(y_test, svm_predictions)
+            print("With kernel = {}, gamma = {} and C = {}, we have an accuracy of {}".format(ker,gam,c_value,accuracy))
+            
+param_grid_svm = {'C': [0.1,1,10,100],
+                  'kernel': ['linear', 'rbf', 'poly'],
+                  'gamma': ['scale', 'auto']}
+
+svm_classifier = SVC()
+grid_search_svm = GridSearchCV(svm_classifier, param_grid_svm)
+grid_search_svm.fit(X_train, y_train)
+best_svm_model = grid_search_svm.best_estimator_
+print("Best Hyperparameters for SVM:", grid_search_svm.best_params_)
+
+svm_classifier = grid_search_svm.best_estimator_
+svm_predictions = svm_classifier.predict(X_test)
+svm_accuracy = accuracy_score(y_test, svm_predictions)
+print("SVM Accuracy:", svm_accuracy)
+
+predictions = svm_classifier.predict(X_test)
+cm = confusion_matrix(y_test, predictions)
+print("Confusion Matrix:")
+print(cm)
+
+cr = classification_report(y_test, predictions)
+print("Classification Report:")
+print(cr)
+
+param_dist_rf = {'n_estimators': [40, 50, 100, 200],
+                 'max_features': ['auto', 'sqrt', 'log2', None],
+                 'max_depth': [None, 10, 20, 30],
+                 'min_samples_split': randint(2, 20),
+                 'min_samples_leaf': randint(1, 20),
+                 'bootstrap': [True, False]}
+
+rf_classifier = RandomForestClassifier()
+random_search_rf = RandomizedSearchCV(rf_classifier, param_distributions=param_dist_rf, n_iter=100, cv=5)
+random_search_rf.fit(X_train, y_train)
+print("Best Hyperparameters for Random Forest:", random_search_rf.best_params_)
+
+rf_classifier = random_search_rf.best_estimator_
+rf_predictions = rf_classifier.predict(X_test)
+rf_accuracy = accuracy_score(y_test, rf_predictions)
+print("Random Forest Accuracy:", rf_accuracy)
+
